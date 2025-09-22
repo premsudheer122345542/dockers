@@ -1,4 +1,4 @@
-name: Deploy to EC2 with Docker
+name: Deploy Docker to EC2
 
 on:
   push:
@@ -10,33 +10,30 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
+    # 1. Checkout your repo
+    - name: Checkout Repository
       uses: actions/checkout@v4
 
-    - name: Build Docker image
-      run: docker build -t my-docker-app .
-
-    - name: Save Docker image as tar
-      run: docker save my-docker-app -o my-docker-app.tar
-
-    - name: Copy image to EC2
+    # 2. Copy files directly to EC2
+    - name: Copy files to EC2
       uses: appleboy/scp-action@v0.1.7
       with:
         host: ${{ secrets.EC2_HOST }}
         username: ${{ secrets.EC2_USER }}
         key: ${{ secrets.EC2_SSH_KEY }}
-        source: "my-docker-app.tar"
-        target: "/home/ec2-user"
+        source: "."
+        target: "/home/ec2-user/"
 
-    - name: Load & Run Docker container on EC2
-      uses: appleboy/ssh-action@v1.0.0
+    # 3. SSH into EC2 and build/run Docker container
+    - name: Build & Run Docker on EC2
+      uses: appleboy/ssh-action@v0.1.7
       with:
         host: ${{ secrets.EC2_HOST }}
         username: ${{ secrets.EC2_USER }}
         key: ${{ secrets.EC2_SSH_KEY }}
         script: |
-          docker load -i ~/my-docker-app.tar
+          cd /home/ec2-user/
+          docker build -t my-docker-app .
           docker stop my-docker-app || true
           docker rm my-docker-app || true
-          docker run -d -p 80:5000 --name my-docker-app my-docker-app
-
+          docker run -d --name my-docker-app -p 5000:5000 my-docker-app
